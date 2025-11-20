@@ -6,7 +6,7 @@
 const LS_PRODUCTS = 'inventory_products';
 const LS_SALES = 'inventory_sales';
 
-/* ---------- Util ---------- */
+/* ---------- Util ---------- */ 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from((root || document).querySelectorAll(sel));
 
@@ -294,6 +294,7 @@ function renderInventoryTable(filter = '') {
 }
 
 /* ---------- Sales rendering ---------- */
+/* ---------- Sales rendering ---------- */
 function renderSalesTable(filter = '') {
   const tbody = $('#salesTable tbody');
   if (!tbody) return;
@@ -303,10 +304,40 @@ function renderSalesTable(filter = '') {
   if (!kpiBox) return;
 
   const q = (filter || '').trim().toLowerCase();
-  const sales = loadSales();
+  const sales = loadSales(); // ← todas las ventas guardadas
 
-  // === FILTRAR ===
-  const filtered = sales.filter(s => {
+  /* =======================================================
+      1. Obtener fecha actual en zona horaria Bogotá
+  ======================================================== */
+  const now = new Date();
+
+  // Bogotá = UTC-5
+  const bogotaDate = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/Bogota" })
+  );
+
+  const y = bogotaDate.getFullYear();
+  const m = bogotaDate.getMonth();
+  const d = bogotaDate.getDate();
+
+  // Inicio del día Bogotá
+  const startDay = new Date(Date.UTC(y, m, d, 5, 0, 0)); 
+  // Fin del día Bogotá
+  const endDay = new Date(Date.UTC(y, m, d + 1, 5, 0, 0));
+
+  /* =======================================================
+      2. Filtrar ventas SOLO del día actual Bogotá
+  ======================================================== */
+  const salesToday = sales.filter(s => {
+    if (!s.timestamp) return false;
+    const t = new Date(s.timestamp);
+    return t >= startDay && t < endDay;
+  });
+
+  /* =======================================================
+      3. Filtrar por texto (opcional)
+  ======================================================== */
+  const filtered = salesToday.filter(s => {
     if (!q) return true;
     return (
       (s.name || '').toLowerCase().includes(q) ||
@@ -316,13 +347,12 @@ function renderSalesTable(filter = '') {
     );
   });
 
-  // === CALCULAR KPI GENERAL ===
+  /* =======================================================
+      4. KPI – Totales del día por método de pago
+  ======================================================== */
   const totalGeneral = filtered.reduce((sum, s) => sum + (s.total || 0), 0);
 
-  // === MÉTODOS DE PAGO A CONTROLAR ===
   const metodos = ["Efectivo", "Transferencia", "Datafono", "Sistecredito", "Addi"];
-
-  // === CALCULAR TOTAL POR MÉTODO ===
   const totales = {};
   metodos.forEach(m => totales[m] = 0);
 
@@ -331,9 +361,11 @@ function renderSalesTable(filter = '') {
     if (metodos.includes(s.method2)) totales[s.method2] += (s.amount2 || 0);
   });
 
-  // === MOSTRAR KPI ===
+  /* =======================================================
+      5. Mostrar KPI
+  ======================================================== */
   kpiBox.innerHTML = `
-    <div><strong>Total ventas ${q ? '(filtradas)' : '(del día)'}:</strong> ${formatCurrency(totalGeneral)}</div>
+    <div><strong>Total ventas del día:</strong> ${formatCurrency(totalGeneral)}</div>
 
     <div style="margin-top:6px; font-size:0.92em; opacity:0.85; line-height:1.6;">
       Efectivo: ${formatCurrency(totales.Efectivo)} &nbsp;|&nbsp;
@@ -344,7 +376,9 @@ function renderSalesTable(filter = '') {
     </div>
   `;
 
-  // === PINTAR TABLA ===
+  /* =======================================================
+      6. Pintar tabla
+  ======================================================== */
   filtered.forEach(s => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -353,20 +387,23 @@ function renderSalesTable(filter = '') {
       <td>${esc(s.brand||'')}</td>
       <td>${s.qty}</td>
       <td>${formatCurrency(s.total)}</td>
-      
+
       <td>
         ${esc(s.method1 || '')}
         ${s.amount1 ? `<div style="font-size:0.8em;color:#45d37a;">${formatCurrency(s.amount1)}</div>` : ''}
       </td>
+
       <td>
         ${esc(s.method2 || '')}
         ${s.amount2 ? `<div style="font-size:0.8em;color:#45d37a;">${formatCurrency(s.amount2)}</div>` : ''}
       </td>
+
       <td>${dateReadable(s.timestamp)}</td>
     `;
     tbody.appendChild(tr);
   });
 }
+
 
 
 
@@ -1760,3 +1797,4 @@ $$('.tab-btn').forEach(btn => {
 if (document.querySelector('#clients') && !document.querySelector('#clients').classList.contains('hidden')) {
   refreshClientsUI();
 }
+
