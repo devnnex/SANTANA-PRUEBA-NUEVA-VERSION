@@ -295,6 +295,7 @@ function renderInventoryTable(filter = '') {
 
 /* ---------- Sales rendering ---------- */
 /* ---------- Sales rendering ---------- */
+/* ---------- Sales rendering ---------- */
 function renderSalesTable(filter = '') {
   const tbody = $('#salesTable tbody');
   if (!tbody) return;
@@ -304,7 +305,7 @@ function renderSalesTable(filter = '') {
   if (!kpiBox) return;
 
   const q = (filter || '').trim().toLowerCase();
-  const sales = loadSales(); // ← todas las ventas guardadas
+  const allSales = loadSales(); // ← TODAS las ventas históricas
 
   /* =======================================================
       1. Obtener fecha actual en zona horaria Bogotá
@@ -321,23 +322,23 @@ function renderSalesTable(filter = '') {
   const d = bogotaDate.getDate();
 
   // Inicio del día Bogotá
-  const startDay = new Date(Date.UTC(y, m, d, 5, 0, 0)); 
+  const startDay = new Date(Date.UTC(y, m, d, 5, 0, 0));
   // Fin del día Bogotá
   const endDay = new Date(Date.UTC(y, m, d + 1, 5, 0, 0));
 
   /* =======================================================
-      2. Filtrar ventas SOLO del día actual Bogotá
+      2. Filtrar ventas SOLO del día actual (para KPI)
   ======================================================== */
-  const salesToday = sales.filter(s => {
+  const salesToday = allSales.filter(s => {
     if (!s.timestamp) return false;
     const t = new Date(s.timestamp);
     return t >= startDay && t < endDay;
   });
 
   /* =======================================================
-      3. Filtrar por texto (opcional)
+      3. Filtrar tabla por texto, NO por fecha
   ======================================================== */
-  const filtered = salesToday.filter(s => {
+  const filteredTable = allSales.filter(s => {
     if (!q) return true;
     return (
       (s.name || '').toLowerCase().includes(q) ||
@@ -350,13 +351,13 @@ function renderSalesTable(filter = '') {
   /* =======================================================
       4. KPI – Totales del día por método de pago
   ======================================================== */
-  const totalGeneral = filtered.reduce((sum, s) => sum + (s.total || 0), 0);
+  const totalGeneral = salesToday.reduce((sum, s) => sum + (s.total || 0), 0);
 
   const metodos = ["Efectivo", "Transferencia", "Datafono", "Sistecredito", "Addi"];
   const totales = {};
   metodos.forEach(m => totales[m] = 0);
 
-  filtered.forEach(s => {
+  salesToday.forEach(s => {
     if (metodos.includes(s.method1)) totales[s.method1] += (s.amount1 || 0);
     if (metodos.includes(s.method2)) totales[s.method2] += (s.amount2 || 0);
   });
@@ -377,9 +378,9 @@ function renderSalesTable(filter = '') {
   `;
 
   /* =======================================================
-      6. Pintar tabla
+      6. Pintar TABLA con TODAS las ventas
   ======================================================== */
-  filtered.forEach(s => {
+  filteredTable.forEach(s => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><input type="checkbox" class="sale-select" data-id="${s.id}"></td>
@@ -403,6 +404,7 @@ function renderSalesTable(filter = '') {
     tbody.appendChild(tr);
   });
 }
+
 
 
 
@@ -1797,4 +1799,5 @@ $$('.tab-btn').forEach(btn => {
 if (document.querySelector('#clients') && !document.querySelector('#clients').classList.contains('hidden')) {
   refreshClientsUI();
 }
+
 
